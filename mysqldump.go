@@ -32,6 +32,7 @@ func New(cfg *Config) (*Mysqldump, error) {
 	if cfg.ExportDataStep == 0 {
 		cfg.ExportDataStep = 1000
 	}
+
 	// 创建导出对象
 	mysqldump := &Mysqldump{
 		cfg:     cfg,

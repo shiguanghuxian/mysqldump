@@ -1,7 +1,6 @@
 package mysqldump
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,25 +10,38 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/mholt/archiver"
 )
 
 // Export 导出数据库所有表
-func (md *Mysqldump) Export() error {
+func (md *Mysqldump) Export() (outFile string, err error) {
 	if md.isClose == true {
-		return errors.New("已调用Close关闭相关资源，无法进行导出")
+		return "", errors.New("已调用Close关闭相关资源，无法进行导出")
 	}
 	// 创建导出sql文件
-	outFile := fmt.Sprintf("%s/%s_%s.sql", strings.TrimRight(md.cfg.OutPath, "/"), md.cfg.DbCfg.DbName, time.Now().Format("20060102T150405"))
+	outFile = fmt.Sprintf("%s/%s_%s.sql", strings.TrimRight(md.cfg.OutPath, "/"), md.cfg.DbCfg.DbName, time.Now().Format("20060102T150405"))
 	lf, err := os.OpenFile(outFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
 	if err != nil {
-		return err
+		return "", err
 	}
-	defer lf.Close()
+	defer func() {
+		// 关闭文件
+		lf.Close()
+		// 压缩文件
+		if md.cfg.OutZip == true {
+			outZipFile := fmt.Sprintf("%s/%s_%s.zip", strings.TrimRight(md.cfg.OutPath, "/"), md.cfg.DbCfg.DbName, time.Now().Format("20060102T150405"))
+			err = archiver.Zip.Make(outZipFile, []string{outFile})
+			if err == nil {
+				outFile = outZipFile
+			}
+		}
+	}()
 
 	// 获取建库语句
 	createSQL, err := md.GetCreateDbSQL()
 	if err != nil {
-		return err
+		return "", err
 	}
 	// 获取数据库字符集
 	charSet := "utf8"
@@ -71,13 +83,13 @@ SET FOREIGN_KEY_CHECKS = 0;
 		createSQL,
 		charSet))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// 查询数据库表列表
 	tables, err := md.SelectTableNames()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// 导出数据对象
@@ -88,7 +100,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 		// 导出建表语句
 		sql, err := md.GetCreateTableSQL(table)
 		if err != nil {
-			return err
+			return "", err
 		}
 		tplSqlModel = append(tplSqlModel, &TPLSqlModel{
 			TableName: table,
@@ -111,16 +123,16 @@ DROP TABLE IF EXISTS %s%s%s;
 			sql,
 			"\n"))
 		if err != nil {
-			return err
+			return "", err
 		}
 		// 导出数据
 		if md.cfg.IsExportData == true {
 			md.ExportData(lf, table)
 		}
 	}
-	js, _ := json.Marshal(aa)
-	log.Println(string(js))
-	return nil
+	// js, _ := json.Marshal(aa)
+	// log.Println(string(js))
+	return outFile, nil
 }
 
 // SelectTableNames 查询数据库表列表

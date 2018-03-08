@@ -8,6 +8,7 @@ type Config struct {
 	IsCreateDB     bool      // 是否生成建库语句
 	OutPath        string    // 输出sql文件目录-绝对路径-用于导出
 	SQLPath        string    // 导入的sql文件-绝对路径-用于导入
+	OutZip         bool      // 是否导出zip压缩文件
 	DbCfg          *DbConfig // 数据库连接信息
 }
 
