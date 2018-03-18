@@ -208,36 +208,65 @@ func (md *Mysqldump) ExportData(w io.Writer, tableName string) (err error) {
 				if xormColumn, ok := xormColumns[column]; ok == true {
 					aa[xormColumn.SQLType.Name] = xormColumn.SQLType.Name
 					if xormColumn.SQLType.IsTime() == true {
-						valTime := val.(time.Time)
-						// valTime, err := time.ParseInLocation("2006-01-02T15:04:05Z", val.(string), time.UTC)
-						if err == nil {
-							val = valTime.Format("2006-01-02 15:04:05")
+						isTimeNull := false
+						if val == nil {
+							val = "null"
+							isTimeNull = true
+						} else {
+							valTime := val.(time.Time)
+							// valTime, err := time.ParseInLocation("2006-01-02T15:04:05Z", val.(string), time.UTC)
+							if err == nil {
+								val = valTime.Format("2006-01-02 15:04:05")
+							} else {
+								val = "null"
+								isTimeNull = true
+							}
 						}
-						values = append(values, fmt.Sprintf("'%v'", val))
+						if isTimeNull == true {
+							values = append(values, fmt.Sprintf("%v", val))
+						} else {
+							values = append(values, fmt.Sprintf("'%v'", val))
+						}
+
 					} else if xormColumn.SQLType.IsBlob() == true {
-						if reflect.TypeOf(val).Kind() == reflect.Slice {
-							val = md.conn.Dialect().FormatBytes(val.([]byte))
-						} else if reflect.TypeOf(val).Kind() == reflect.String {
-							val = val.(string)
+						if val == nil {
+							val = "false"
+						} else {
+							if reflect.TypeOf(val).Kind() == reflect.Slice {
+								val = md.conn.Dialect().FormatBytes(val.([]byte))
+							} else if reflect.TypeOf(val).Kind() == reflect.String {
+								val = val.(string)
+							}
 						}
+
 						values = append(values, fmt.Sprintf("%v", val))
 					} else if xormColumn.SQLType.IsNumeric() == true {
-						if valByte, ok := val.([]byte); ok == true {
-							// log.Println(column, "3-1")
-							val = string(valByte)
+						if val == nil {
+							val = "null"
 						} else {
-							// log.Println(column, "3-2")
-							val = fmt.Sprint(val)
+							if valByte, ok := val.([]byte); ok == true {
+								// log.Println(column, "3-1")
+								val = string(valByte)
+							} else {
+								// log.Println(column, "3-2")
+								val = fmt.Sprint(val)
+							}
 						}
+
 						values = append(values, fmt.Sprintf("%v", val))
 					} else {
-						if valByte, ok := val.([]byte); ok == true {
-							// log.Println(column, "3-1")
-							val = string(valByte)
+						if val == nil {
+							val = ""
 						} else {
-							// log.Println(column, "3-2")
-							val = fmt.Sprint(val)
+							if valByte, ok := val.([]byte); ok == true {
+								// log.Println(column, "3-1")
+								val = string(valByte)
+							} else {
+								// log.Println(column, "3-2")
+								val = fmt.Sprint(val)
+							}
 						}
+
 						values = append(values, fmt.Sprintf("'%v'", val))
 					}
 				}
